@@ -51,7 +51,7 @@ def get_summary(reviews: List[str], user_lang: str = "en"):
 
                 "You are a professional e-commerce marketplace for family businesses analyst. Your task is to summarize reviews with a focus on 'Consensus' and 'Overall meaning' of the reviews."
 
-                f"\nCRITICAL RULE: {lang_instruction} ONLY"
+                f"\nCRITICAL RULE: {lang_instruction} throughot the whole text"
 
                 "\n1. Identify the majority opinion and lead with it."
 
@@ -96,7 +96,7 @@ def enhance_description(raw_text: str):
 
                 "\nCRITICAL RULES:"
 
-                "\n1. Respond in the same language throughout the whole text (arabic or english)"
+                "\n1. Respond in the same language throughout the whole text (arabic or english) ONLY"
 
                 "\n2. Do not add new information."
 

@@ -20,7 +20,7 @@ headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 def query_hf_api(messages, params):
     payload = {
-        "model": "mistralai/Mistral-7B-Instruct-v0.2:featherless-ai",
+        "model": "Qwen/Qwen2.5-7B-Instruct",
         "messages": messages,
         "max_tokens": params.get("max_new_tokens", 150),
         "temperature": params.get("temperature", 0.5),

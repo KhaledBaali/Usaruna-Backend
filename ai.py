@@ -15,7 +15,7 @@ app.add_middleware(
 )
 
 HF_TOKEN = os.getenv("HF_TOKEN")
-API_URL = "https://api-inference.huggingface.co/v1/chat/completions"
+API_URL = "https://router.huggingface.co/v1/chat/completions"
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 def query_hf_api(messages, params):

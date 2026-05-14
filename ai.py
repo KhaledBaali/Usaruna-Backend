@@ -1,30 +1,52 @@
-from transformers import pipeline
+import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
-import re
-
+import os
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
-
+# أضفنا allow_credentials و حددنا الرابط بشكل أوضح
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",    # رابط Vite المحلي
+        "http://127.0.0.1:5173",
+        "https://usruna-ai.onrender.com" # رابط السيرفر نفسه
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],           # يسمح بـ POST, GET, OPTIONS, إلخ
+    allow_headers=["*"],           # يسمح بكل أنواع الـ Headers
+)
+# تفعيل CORS عشان الفرونت إند (Vite) يقدر يتصل بالسيرفر
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # في الإنتاج، يفضل تحديد رابط موقعك على Render
     allow_methods=["*"],
     allow_headers=["*"],
 )
-pipe = pipeline("text-generation", model="Qwen/Qwen2.5-3B-Instruct", device_map="auto", torch_dtype="float16")
 
+# --- إعدادات Hugging Face API ---
+# نصيحة: حط التوكن في الـ Environment Variables في Render باسم HF_TOKEN
+HF_TOKEN = os.getenv("HF_TOKEN")
+API_URL = "https://api-inference.huggingface.co/v1/chat/completions"
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
-def get_summary(reviews: List[str], user_lang: str = "en"):
-
-    sum_args = {
-    "max_new_tokens": 70,
-    "temperature": 0.2,
-    "do_sample": True,
-    "repetition_penalty": 1.1
+def query_hf_api(messages, params):
+    payload = {
+        "model": "Qwen/Qwen2.5-7B-Instruct",
+        "messages": messages,
+        "max_tokens": params.get("max_new_tokens", 150),
+        "temperature": params.get("temperature", 0.5),
     }
+    response = requests.post(API_URL, headers=headers, json=payload)
+    result = response.json()
+    return result['choices'][0]['message']['content']
+
+# --- دالة تلخيص المراجعات ---
+def get_summary(reviews: List[str], user_lang: str = "en"):
+    params = {"max_new_tokens": 100, "temperature": 0.2}
 
     if user_lang == "ar":
         lang_instruction = "Always respond in Arabic. Start with 'بشكل عام، يرى العملاء...'"
@@ -33,121 +55,66 @@ def get_summary(reviews: List[str], user_lang: str = "en"):
         lang_instruction = "Always respond in English. Start with 'Overall, customers...'"
         start_phrase = "Overall, customers"
 
-
     messages = [
-        {
-            "role": "system", 
-            "content": (
-                "You are a professional e-commerce marketplace for family businesses analyst. Your task is to summarize reviews with a focus on 'Consensus' and 'Overall meaning' of the reviews."
-                f"\nCRITICAL RULE: {lang_instruction}" 
-                "\n1. Identify the majority opinion and lead with it."
-                "\n2. If most reviews are positive, keep the tone encouraging and highlight the strengths."
-                "\n3. Briefly mention any minority concerns (if any) at the end of the sentence as a minor note."
-                "\n4. Ensure the output is a single, consistent, sophisticated, and professional sentence."
-                "\n5. Avoid repetition and redundant phrases."
-
-            )
-        },
-        {
-            "role": "user", 
-            "content": f"Summarize these reviews starting with '{start_phrase}':\n\n{' . '.join(reviews)}"
-        }
+        {"role": "system", "content": f"You are a professional analyst. {lang_instruction} Summarize strictly in ONE sentence."},
+        {"role": "user", "content": f"Summarize these reviews starting with '{start_phrase}':\n\n{' . '.join(reviews)}"}
     ]
 
-    result = pipe(messages, **sum_args)
+    return query_hf_api(messages, params)
 
-    return result[0]['generated_text'][-1]['content'] 
-
+# --- دالة تحسين الوصف ---
 def enhance_description(raw_text: str):
+    params = {"max_new_tokens": 250, "temperature": 0.5}
 
     messages = [
         {
-            "role": "system", 
+            "role": "system",
             "content": (
-                "You are a professional marketing content writer specializing in the e-commerce market for home-based businesses."                
-                "\nYour task is to only REFORMAT and ENHANCE descriptions to be attractive and professional."
-                "\nCRITICAL RULES:" 
-                "\n1. Respond in the same language throughout the whole text (arabic or english)"
-                "\n2. Do not add new information."
-                "\nSTRICT RULES:"
-                "\n1. Ensure the tone is warm and brief."
-                "\n2. Ensure the output is sophisticated and professional sentence."
+                "You are a professional marketing writer. REFORMAT and ENHANCE the description."
+                "\n1. Same language as input. 2. Warm tone. 3. Bullet points and emojis. 4. No new facts."
             )
         },
-        {
-            "role": "user", 
-            "content": f"enhance this product description:\n\n{raw_text}"
-        }
+        {"role": "user", "content": f"Enhance this product description:\n\n{raw_text}"}
     ]
 
-    enhance_args = {
-    "max_new_tokens": 150,
-    "temperature": 0.2,
-    "do_sample": True,
-    "top_p": 0.9,
-    }
-    
-    result = pipe(messages, **enhance_args)
-    final_text = result[0]['generated_text'][-1]['content'].strip()
-    
-    final_text = final_text.replace("\\n", "\n")
-    print(final_text)
-    return final_text
+    return query_hf_api(messages, params).replace("\\n", "\n")
 
+# --- دالة الرد الذكي ---
 class ReviewRequest(BaseModel):
     product_name: str
     product_description: str
-    product_details: str  
+    product_details: str
     customer_name: str
     review_text: str
 
 def generate_reply(data: ReviewRequest):
+    params = {"max_new_tokens": 150, "temperature": 0.3}
+
     messages = [
         {
-            "role": "system", 
+            "role": "system",
             "content": (
-                "You are a professional Customer Support Assistant specializing in the e-commerce market for home-based businesses."
-                f"\nPRODUCT INFO:"
-                f"\n- Name: {data.product_name}"
-                f"\n- Description: {data.product_description}"
-                f"\n- Specific Details: {data.product_details}" 
-                f"\n- Customer name:{data.customer_name}"
-                "\nCRITICAL RULE: Always respond in the same review language throughout the whole text ONLY"
-                "\nINSTRUCTIONS:"
-                "\n1. Use the PRODUCT INFO above to answer questions."
-                f"\n2. Greet customer usnig {data.customer_name} and keep it nice and short."
-                "\n3. Understand then respond to the question/review without follow-up questions"
+                f"You are customer support for 'Osruna'. INFO: Name: {data.product_name}, Desc: {data.product_description}, Details: {data.product_details}."
+                f"\nGreet {data.customer_name}. Respond ONLY in the customer's language. Be short. No follow-up questions."
             )
         },
-        {
-            "role": "user", 
-            "content": f"Customer Review/Question: {data.review_text}"
-        }
+        {"role": "user", "content": data.review_text}
     ]
 
-    gen_args = {
-        "max_new_tokens": 100,
-        "temperature": 0.2,
-        "top_p": 0.9,
-        "do_sample": True
-    }
+    return query_hf_api(messages, params).strip()
 
-    result = pipe(messages, **gen_args)
-    return result[0]['generated_text'][-1]['content'].strip()
+# --- Endpoints ---
 
 @app.post("/smart-reply")
 async def smart_reply_endpoint(data: ReviewRequest):
-    reply = generate_reply(data)
-    return {"suggested_reply": reply}
+    return {"suggested_reply": generate_reply(data)}
 
 class ProductDesc(BaseModel):
     description: str
 
 @app.post("/enhance")
 async def enhance_endpoint(data: ProductDesc):
-    enhanced_text = enhance_description(data.description)
-    return {"enhanced_description": enhanced_text}
-
+    return {"enhanced_description": enhance_description(data.description)}
 
 class ReviewData(BaseModel):
     reviews: List[str]
@@ -155,9 +122,4 @@ class ReviewData(BaseModel):
 
 @app.post("/summarize")
 async def summarize_endpoint(data: ReviewData):
-    summary = get_summary(data.reviews, data.lang)
-    return {"summary": summary}
-
-# uvicorn ai:app --reload       
-# cd "C:\Users\eyadx\المستندات\cpit499"
-# http://127.0.0.1:8000/docs
+    return {"summary": get_summary(data.reviews, data.lang)}

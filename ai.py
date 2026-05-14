@@ -51,7 +51,7 @@ def get_summary(reviews: List[str], user_lang: str = "en"):
 
                 "You are a professional e-commerce marketplace for family businesses analyst. Your task is to summarize reviews with a focus on 'Consensus' and 'Overall meaning' of the reviews."
 
-                f"\nCRITICAL RULE: {lang_instruction}"
+                f"\nCRITICAL RULE: {lang_instruction} ONLY"
 
                 "\n1. Identify the majority opinion and lead with it."
 

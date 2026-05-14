@@ -81,7 +81,7 @@ def get_summary(reviews: List[str], user_lang: str = "en"):
     return query_hf_api(messages, params)
 
 def enhance_description(raw_text: str):
-    params = {"max_new_tokens": 250, "temperature": 0.5}
+    params = {"max_new_tokens": 250, "temperature": 0.2}
     messages = [
 
         {
@@ -130,7 +130,7 @@ class ReviewRequest(BaseModel):
     review_text: str
 
 def generate_reply(data: ReviewRequest):
-    params = {"max_new_tokens": 150, "temperature": 0.3}
+    params = {"max_new_tokens": 150, "temperature": 0.2}
     messages = [
 
         {

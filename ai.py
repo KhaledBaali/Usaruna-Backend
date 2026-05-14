@@ -96,7 +96,7 @@ def enhance_description(raw_text: str):
 
                 "\nCRITICAL RULES:"
 
-                "\n1. Respond in the same input language throughout the whole text (arabic or english) ONLY"
+                "\n1. Respond in the same input language throughout the whole text"
 
                 "\n2. Do not add new information."
 

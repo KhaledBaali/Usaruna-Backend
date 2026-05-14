@@ -42,23 +42,84 @@ def get_summary(reviews: List[str], user_lang: str = "en"):
         lang_instruction = "Always respond in English. Start with 'Overall, customers...'"
         start_phrase = "Overall, customers"
     messages = [
-        {"role": "system", "content": f"You are a professional analyst. {lang_instruction} Summarize strictly in ONE sentence."},
-        {"role": "user", "content": f"Summarize these reviews starting with '{start_phrase}':\n\n{' . '.join(reviews)}"},
+
+        {
+
+            "role": "system",
+
+            "content": (
+
+                "You are a professional e-commerce marketplace for family businesses analyst. Your task is to summarize reviews with a focus on 'Consensus' and 'Overall meaning' of the reviews."
+
+                f"\nCRITICAL RULE: {lang_instruction}"
+
+                "\n1. Identify the majority opinion and lead with it."
+
+                "\n2. If most reviews are positive, keep the tone encouraging and highlight the strengths."
+
+                "\n3. Briefly mention any minority concerns (if any) at the end of the sentence as a minor note."
+
+                "\n4. Ensure the output is a single, consistent, sophisticated, and professional sentence."
+
+                "\n5. Avoid repetition and redundant phrases."
+
+
+
+            )
+
+        },
+
+        {
+
+            "role": "user",
+
+            "content": f"Summarize these reviews starting with '{start_phrase}':\n\n{' . '.join(reviews)}"
+
+        }
+
     ]
     return query_hf_api(messages, params)
 
 def enhance_description(raw_text: str):
     params = {"max_new_tokens": 250, "temperature": 0.5}
     messages = [
+
         {
+
             "role": "system",
+
             "content": (
-                "You are a professional marketing writer. REFORMAT and ENHANCE the description."
-                "\n1. Same language as input. 2. Warm tone. 3. Bullet points and emojis. 4. No new facts."
-            ),
+
+                "You are a professional marketing content writer specializing in the e-commerce market for home-based businesses."                
+
+                "\nYour task is to only REFORMAT and ENHANCE descriptions to be attractive and professional."
+
+                "\nCRITICAL RULES:"
+
+                "\n1. Respond in the same language throughout the whole text (arabic or english)"
+
+                "\n2. Do not add new information."
+
+                "\nSTRICT RULES:"
+
+                "\n1. Ensure the tone is warm and brief."
+
+                "\n2. Ensure the output is sophisticated and professional sentence."
+
+            )
+
         },
-        {"role": "user", "content": f"Enhance this product description:\n\n{raw_text}"},
+
+        {
+
+            "role": "user",
+
+            "content": f"enhance this product description:\n\n{raw_text}"
+
+        }
+
     ]
+
     return query_hf_api(messages, params).replace("\\n", "\n")
 
 class ReviewRequest(BaseModel):
@@ -71,15 +132,49 @@ class ReviewRequest(BaseModel):
 def generate_reply(data: ReviewRequest):
     params = {"max_new_tokens": 150, "temperature": 0.3}
     messages = [
+
         {
+
             "role": "system",
+
             "content": (
-                f"You are customer support for 'Usaruna'. INFO: Name: {data.product_name}, Desc: {data.product_description}, Details: {data.product_details}."
-                f"\nGreet {data.customer_name}. Respond ONLY in the customer's language. Be short. No follow-up questions."
-            ),
+
+                "You are a professional Customer Support Assistant specializing in the e-commerce market for home-based businesses."
+
+                f"\nPRODUCT INFO:"
+
+                f"\n- Name: {data.product_name}"
+
+                f"\n- Description: {data.product_description}"
+
+                f"\n- Specific Details: {data.product_details}"
+
+                f"\n- Customer name:{data.customer_name}"
+
+                "\nCRITICAL RULE: Always respond in the same review language throughout the whole text ONLY"
+
+                "\nINSTRUCTIONS:"
+
+                "\n1. Use the PRODUCT INFO above to answer questions."
+
+                f"\n2. Greet customer usnig {data.customer_name} and keep it nice and short."
+
+                "\n3. Understand then respond to the question/review without follow-up questions"
+
+            )
+
         },
-        {"role": "user", "content": data.review_text},
+
+        {
+
+            "role": "user",
+
+            "content": f"Customer Review/Question: {data.review_text}"
+
+        }
+
     ]
+
     return query_hf_api(messages, params).strip()
 
 class ProductDesc(BaseModel):
